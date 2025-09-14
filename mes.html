@@ -111,6 +111,119 @@
       loadGastos();
     }
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gastos del Mes</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    #graficoTipos {
+      max-width: 300px;
+      max-height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <h1>💰 Gastos del Mes</h1>
+
+  <div id="tracker-section" style="display:none;">
+    <h2>Gasto</h2>
+    <input type="text" id="desc" placeholder="Descripción">
+    
+    <!-- Desplegable para tipo de gasto -->
+    <select id="tipo">
+      <option value="Comida">Comida</option>
+      <option value="Transporte">Transporte</option>
+      <option value="Entretenimiento">Entretenimiento</option>
+      <option value="Hogar">Hogar</option>
+      <option value="Otros">Otros</option>
+      <option value="Fijo">Fijo (Extra)</option>
+    </select>
+    
+    <input type="number" id="monto" placeholder="Monto">
+    <button onclick="addGasto()">Añadir Gasto</button>
+    <ul id="listaGastos"></ul>
+    
+    <h2>Resumen de Gastos</h2>
+    <p id="totalGastos">Total Gastos: 0 €</p>
+    <ul id="resumenTipo"></ul>
+    <canvas id="graficoTipos"></canvas>
+
+    <p><a href="index.html">⬅ Volver al resumen anual</a></p>
+    <button onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBBEiFr96VC4lYfqxZfmu0Ls8aphlwn20",
+      authDomain: "finanzas2025-9e5fa.firebaseapp.com",
+      projectId: "finanzas2025-9e5fa",
+      storageBucket: "finanzas2025-9e5fa.firebasestorage.app",
+      messagingSenderId: "224757847827",
+      appId: "1:224757847827:web:ed5ea37545b3413908ace6"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const mes = urlParams.get("mes");
+    const mesesNombre = {
+      "01":"Enero","02":"Febrero","03":"Marzo","04":"Abril","05":"Mayo",
+      "06":"Junio","07":"Julio","08":"Agosto","09":"Septiembre",
+      "10":"Octubre","11":"Noviembre","12":"Diciembre"
+    };
+    document.querySelector('h1').textContent = `💰 Gastos de ${mesesNombre[mes] || "Mes"}`;
+
+    // Gastos fijos predeterminados
+    const gastosFijosPred = [
+      { desc: "Alquiler", tipo: "Fijo", monto: 403 },
+      { desc: "Internet", tipo: "Fijo", monto: 16.5 },
+      { desc: "iCloud", tipo: "Fijo", monto: 3 },
+      { desc: "Netflix", tipo: "Fijo", monto: 13 },
+      { desc: "Revolut", tipo: "Fijo", monto: 200 },
+      { desc: "Google", tipo: "Fijo", monto: 2 },
+      { desc: "Gym", tipo: "Fijo", monto: 25 }
+    ];
+
+    async function addGasto(desc=null, tipo=null, monto=null){
+      const user = auth.currentUser;
+      if(!user) return;
+
+      const descInput = desc || document.getElementById("desc").value;
+      const tipoInput = tipo || document.getElementById("tipo").value;
+      const montoInput = monto || parseFloat(document.getElementById("monto").value);
+      if(!descInput || isNaN(montoInput)) return;
+
+      await addDoc(collection(db, "gastos"), {
+        userId: user.uid,
+        desc: descInput,
+        tipo: tipoInput,
+        monto: montoInput,
+        fecha: new Date(),
+        mes: mes
+      });
+
+      if(!desc) {
+        document.getElementById("desc").value = "";
+        document.getElementById("monto").value = "";
+      }
+
+      loadGastos();
+    }
+
+    async function deleteGasto(id){
+      await deleteDoc(doc(db, "gastos", id));
+      loadGastos();
+    }
+
     async function loadGastos(){
       const user = auth.currentUser;
       if(!user) return;
@@ -189,6 +302,24 @@
         options: { responsive: true, maintainAspectRatio: false }
       });
     }
+
+    async function logout(){ await signOut(auth); }
+
+    onAuthStateChanged(auth,user=>{
+      if(user){
+        document.getElementById("tracker-section").style.display = "block";
+        loadGastos();
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+
+    window.addGasto = addGasto;
+    window.logout = logout;
+  </script>
+</body>
+</html>
+
 
     async function logout(){ await signOut(auth); }
 
