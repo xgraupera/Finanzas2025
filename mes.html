@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     #graficoTipos {
-      max-width: 300px; /* Tamaño máximo del gráfico */
+      max-width: 300px;
       max-height: 300px;
     }
   </style>
@@ -26,6 +26,7 @@
       <option value="Entretenimiento">Entretenimiento</option>
       <option value="Hogar">Hogar</option>
       <option value="Otros">Otros</option>
+      <option value="Fijo">Fijo (Extra)</option>
     </select>
     
     <input type="number" id="monto" placeholder="Monto">
@@ -69,7 +70,7 @@
     document.querySelector('h1').textContent = `💰 Gastos de ${mesesNombre[mes] || "Mes"}`;
 
     // Gastos fijos predeterminados
-    const gastosFijos = [
+    const gastosFijosPred = [
       { desc: "Alquiler", tipo: "Fijo", monto: 403 },
       { desc: "Internet", tipo: "Fijo", monto: 16.5 },
       { desc: "iCloud", tipo: "Fijo", monto: 3 },
@@ -97,7 +98,7 @@
         mes: mes
       });
 
-      if(!desc) { // solo limpiar si es input manual
+      if(!desc) {
         document.getElementById("desc").value = "";
         document.getElementById("monto").value = "";
       }
@@ -117,38 +118,40 @@
       const q = query(collection(db, "gastos"), where("userId","==",user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
 
-      // Cargar gastos fijos si no existen
-      const existeFijos = snapshot.docs.some(d => d.data().tipo === "Fijo");
-      if(!existeFijos){
-        for(const gf of gastosFijos){
+      // Añadir gastos fijos predeterminados si no existen
+      const existentes = snapshot.docs.map(d => d.data().desc);
+      for(const gf of gastosFijosPred){
+        if(!existentes.includes(gf.desc)){
           await addGasto(gf.desc, "Fijo", gf.monto);
+          return; // recargar después
         }
-        return;
       }
-
-      const fijos = [];
-      const normales = [];
-      snapshot.forEach(docItem=>{
-        const gasto = docItem.data();
-        gasto.id = docItem.id;
-        if(gasto.tipo==="Fijo") fijos.push(gasto);
-        else normales.push(gasto);
-      });
-
-      fijos.sort((a,b)=> a.desc.localeCompare(b.desc));
 
       const listaGastos = document.getElementById("listaGastos");
       listaGastos.innerHTML = "";
 
-      const todosGastos = [...fijos,...normales];
+      const gastos = snapshot.docs.map(d=>{
+        const g = d.data();
+        g.id = d.id;
+        return g;
+      });
 
-      let totalesTipo = {};
+      // Separar fijos predeterminados y resto
+      const fijosPred = gastos.filter(g=> gastosFijosPred.some(fp=>fp.desc===g.desc));
+      const otros = gastos.filter(g=> !gastosFijosPred.some(fp=>fp.desc===g.desc));
+
+      // Ordenar fijos predeterminados alfabéticamente
+      fijosPred.sort((a,b)=> a.desc.localeCompare(b.desc));
+
+      const todos = [...fijosPred, ...otros];
+
       let total = 0;
+      const totalesTipo = {};
 
-      todosGastos.forEach(gasto=>{
+      todos.forEach(gasto=>{
         total += gasto.monto;
-        if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo]=0;
-        totalesTipo[gasto.tipo]+=gasto.monto;
+        if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo] = 0;
+        totalesTipo[gasto.tipo] += gasto.monto;
 
         const li = document.createElement("li");
         li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto.toFixed(2)} € `;
@@ -162,8 +165,8 @@
         listaGastos.appendChild(li);
       });
 
-      // Resumen
       document.getElementById("totalGastos").textContent = `Total Gastos: ${total.toFixed(2)} €`;
+
       const listaResumen = document.getElementById("resumenTipo");
       listaResumen.innerHTML = "";
       for(const tipo in totalesTipo){
@@ -203,4 +206,5 @@
   </script>
 </body>
 </html>
+
 
