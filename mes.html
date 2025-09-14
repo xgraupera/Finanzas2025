@@ -7,11 +7,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     #graficoTipos {
-      width: 300px;
-      height: 300px;
-    }
-    li button {
-      cursor: pointer;
+      max-width: 300px; /* Tamaño máximo del gráfico */
+      max-height: 300px;
     }
   </style>
 </head>
@@ -19,22 +16,20 @@
   <h1>💰 Gastos del Mes</h1>
 
   <div id="tracker-section" style="display:none;">
-    <h2>Agregar Gasto</h2>
+    <h2>Gasto</h2>
     <input type="text" id="desc" placeholder="Descripción">
     
+    <!-- Desplegable para tipo de gasto -->
     <select id="tipo">
       <option value="Comida">Comida</option>
       <option value="Transporte">Transporte</option>
       <option value="Entretenimiento">Entretenimiento</option>
       <option value="Hogar">Hogar</option>
       <option value="Otros">Otros</option>
-      <option value="Fijo">Fijo</option>
     </select>
     
     <input type="number" id="monto" placeholder="Monto">
     <button onclick="addGasto()">Añadir Gasto</button>
-    
-    <h2>Lista de Gastos</h2>
     <ul id="listaGastos"></ul>
     
     <h2>Resumen de Gastos</h2>
@@ -64,7 +59,6 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // 🔹 Mes de la URL
     const urlParams = new URLSearchParams(window.location.search);
     const mes = urlParams.get("mes");
     const mesesNombre = {
@@ -74,39 +68,40 @@
     };
     document.querySelector('h1').textContent = `💰 Gastos de ${mesesNombre[mes] || "Mes"}`;
 
-    // 🔹 Gastos fijos predeterminados
-    const gastosFijosPred = [
-      {desc:"Alquiler", monto:403},
-      {desc:"Internet", monto:16.5},
-      {desc:"iCloud", monto:3},
-      {desc:"Netflix", monto:13},
-      {desc:"Revolut", monto:200},
-      {desc:"Google", monto:2},
-      {desc:"Gym", monto:25}
+    // Gastos fijos predeterminados
+    const gastosFijos = [
+      { desc: "Alquiler", tipo: "Fijo", monto: 403 },
+      { desc: "Internet", tipo: "Fijo", monto: 16.5 },
+      { desc: "iCloud", tipo: "Fijo", monto: 3 },
+      { desc: "Netflix", tipo: "Fijo", monto: 13 },
+      { desc: "Revolut", tipo: "Fijo", monto: 200 },
+      { desc: "Google", tipo: "Fijo", monto: 2 },
+      { desc: "Gym", tipo: "Fijo", monto: 25 }
     ];
 
     async function addGasto(desc=null, tipo=null, monto=null){
       const user = auth.currentUser;
       if(!user) return;
 
-      if(!desc) desc = document.getElementById("desc").value;
-      if(!tipo) tipo = document.getElementById("tipo").value;
-      if(!monto) monto = parseFloat(document.getElementById("monto").value);
-      if(!desc || isNaN(monto)) return;
+      const descInput = desc || document.getElementById("desc").value;
+      const tipoInput = tipo || document.getElementById("tipo").value;
+      const montoInput = monto || parseFloat(document.getElementById("monto").value);
+      if(!descInput || isNaN(montoInput)) return;
 
       await addDoc(collection(db, "gastos"), {
         userId: user.uid,
-        desc,
-        tipo,
-        monto,
+        desc: descInput,
+        tipo: tipoInput,
+        monto: montoInput,
         fecha: new Date(),
         mes: mes
       });
 
-      if(!desc) return;
+      if(!desc) { // solo limpiar si es input manual
+        document.getElementById("desc").value = "";
+        document.getElementById("monto").value = "";
+      }
 
-      document.getElementById("desc").value = "";
-      document.getElementById("monto").value = "";
       loadGastos();
     }
 
@@ -122,39 +117,38 @@
       const q = query(collection(db, "gastos"), where("userId","==",user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
 
-      // Añadir fijos predeterminados si no existen
-      const existentes = snapshot.docs.map(d => d.data().desc);
-      for(const gf of gastosFijosPred){
-        if(!existentes.includes(gf.desc)){
-          await addGasto(gf.desc,"Fijo",gf.monto);
-          return; // recarga
+      // Cargar gastos fijos si no existen
+      const existeFijos = snapshot.docs.some(d => d.data().tipo === "Fijo");
+      if(!existeFijos){
+        for(const gf of gastosFijos){
+          await addGasto(gf.desc, "Fijo", gf.monto);
         }
+        return;
       }
+
+      const fijos = [];
+      const normales = [];
+      snapshot.forEach(docItem=>{
+        const gasto = docItem.data();
+        gasto.id = docItem.id;
+        if(gasto.tipo==="Fijo") fijos.push(gasto);
+        else normales.push(gasto);
+      });
+
+      fijos.sort((a,b)=> a.desc.localeCompare(b.desc));
 
       const listaGastos = document.getElementById("listaGastos");
       listaGastos.innerHTML = "";
 
-      const gastos = snapshot.docs.map(d=>{
-        const g = d.data();
-        g.id = d.id;
-        return g;
-      });
+      const todosGastos = [...fijos,...normales];
 
-      const fijosPred = gastos.filter(g => gastosFijosPred.some(fp => fp.desc === g.desc));
-      fijosPred.sort((a,b)=> a.desc.localeCompare(b.desc));
-
-      const otrosFijos = gastos.filter(g => g.tipo === "Fijo" && !gastosFijosPred.some(fp => fp.desc === g.desc));
-      const normales = gastos.filter(g => g.tipo !== "Fijo");
-
-      const todos = [...fijosPred, ...otrosFijos, ...normales];
-
+      let totalesTipo = {};
       let total = 0;
-      const totalesTipo = {};
 
-      todos.forEach(gasto=>{
+      todosGastos.forEach(gasto=>{
         total += gasto.monto;
-        if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo] = 0;
-        totalesTipo[gasto.tipo] += gasto.monto;
+        if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo]=0;
+        totalesTipo[gasto.tipo]+=gasto.monto;
 
         const li = document.createElement("li");
         li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto.toFixed(2)} € `;
@@ -168,8 +162,8 @@
         listaGastos.appendChild(li);
       });
 
+      // Resumen
       document.getElementById("totalGastos").textContent = `Total Gastos: ${total.toFixed(2)} €`;
-
       const listaResumen = document.getElementById("resumenTipo");
       listaResumen.innerHTML = "";
       for(const tipo in totalesTipo){
@@ -180,8 +174,7 @@
 
       // Gráfico
       const ctx = document.getElementById("graficoTipos").getContext('2d');
-      if(window.grafico) window.grafico.destroy();
-      window.grafico = new Chart(ctx, {
+      new Chart(ctx, {
         type: 'pie',
         data: {
           labels: Object.keys(totalesTipo),
@@ -207,11 +200,6 @@
 
     window.addGasto = addGasto;
     window.logout = logout;
-    window.deleteGasto = deleteGasto;
-
   </script>
 </body>
 </html>
-
-
-
