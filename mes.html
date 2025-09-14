@@ -10,7 +10,7 @@
   <h1>💰 Gastos del Mes</h1>
 
   <div id="tracker-section" style="display:none;">
-    <h2>Agregar Gasto</h2>
+    <h2>Gasto</h2>
     <input type="text" id="desc" placeholder="Descripción">
     
     <!-- 🔹 Desplegable para tipo de gasto -->
@@ -24,11 +24,12 @@
     
     <input type="number" id="monto" placeholder="Monto">
     <button onclick="addGasto()">Añadir Gasto</button>
-
-    <h2>Resumen del Mes</h2>
+    <ul id="listaGastos"></ul>
+    
+    <h2>Resumen de Gastos</h2>
     <p id="totalGastos">Total Gastos: 0 €</p>
     <ul id="resumenTipo"></ul>
-    <canvas id="graficoTipos" width="400" height="400"></canvas>
+    <canvas id="graficoTipos" width="100" height="100"></canvas>
 
     <p><a href="index.html">⬅ Volver al resumen anual</a></p>
     <button onclick="logout()">Cerrar sesión</button>
