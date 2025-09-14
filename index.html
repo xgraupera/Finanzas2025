@@ -41,12 +41,13 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { 
-      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut 
+      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
     import { 
       getFirestore, collection, addDoc, getDocs, query, where 
     } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
+    // 🔹 Configuración Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBBBEiFr96VC4lYfqxZfmu0Ls8aphlwn20",
       authDomain: "finanzas2025-9e5fa.firebaseapp.com",
@@ -61,7 +62,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Registro
+    // 🔹 Registro
     async function registrar() {
       const email = document.getElementById("regEmail").value;
       const password = document.getElementById("regPassword").value;
@@ -76,7 +77,7 @@
       }
     }
 
-    // Login
+    // 🔹 Login
     async function login() {
       const email = document.getElementById("loginEmail").value;
       const password = document.getElementById("loginPassword").value;
@@ -91,12 +92,12 @@
       }
     }
 
-    // Logout
+    // 🔹 Logout
     async function logout() {
       await signOut(auth);
     }
 
-    // Añadir gasto
+    // 🔹 Añadir gasto
     async function addGasto() {
       const user = auth.currentUser;
       if (!user) {
@@ -104,12 +105,16 @@
         return;
       }
       const desc = document.getElementById("desc").value;
-      const monto = document.getElementById("monto").value;
+      const monto = parseFloat(document.getElementById("monto").value);
+      if (!desc || isNaN(monto)) {
+        alert("Introduce descripción y monto válido");
+        return;
+      }
       try {
         await addDoc(collection(db, "gastos"), {
           userId: user.uid,
-          desc,
-          monto: parseFloat(monto),
+          desc: desc,
+          monto: monto,
           fecha: new Date()
         });
         document.getElementById("desc").value = "";
@@ -120,28 +125,28 @@
       }
     }
 
-    // Cargar gastos
+    // 🔹 Cargar gastos solo del usuario actual
     async function loadGastos() {
       const user = auth.currentUser;
       if (!user) return;
-
       try {
         const q = query(collection(db, "gastos"), where("userId", "==", user.uid));
-        const querySnapshot = await getDocs(q);
+        const snapshot = await getDocs(q);
         const lista = document.getElementById("listaGastos");
         lista.innerHTML = "";
-        querySnapshot.forEach((doc) => {
+        snapshot.forEach(doc => {
           const gasto = doc.data();
           const li = document.createElement("li");
           li.textContent = `${gasto.desc}: ${gasto.monto} €`;
           lista.appendChild(li);
         });
       } catch (error) {
+        console.error("Error cargando gastos:", error.code, error.message);
         alert(`Error cargando gastos: ${error.code} - ${error.message}`);
       }
     }
 
-    // Detectar cambios de usuario
+    // 🔹 Detectar cambios de usuario
     onAuthStateChanged(auth, (user) => {
       if (user) {
         document.getElementById("auth-section").style.display = "none";
@@ -161,4 +166,5 @@
   </script>
 </body>
 </html>
+
 
