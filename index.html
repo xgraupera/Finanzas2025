@@ -1,51 +1,149 @@
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prueba Firebase desde GitHub</title>
+</head>
+<body>
+  <h1>🔥 Prueba Firebase Auth y Firestore</h1>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBBBEiFr96VC4lYfqxZfmu0Ls8aphlwn20",
-  authDomain: "finanzas2025-9e5fa.firebaseapp.com",
-  projectId: "finanzas2025-9e5fa",
-  storageBucket: "finanzas2025-9e5fa.firebasestorage.app",
-  messagingSenderId: "224757847827",
-  appId: "1:224757847827:web:ed5ea37545b3413908ace6",
-  measurementId: "G-FXHHGMCYL6"
-};
+  <div id="auth-section">
+    <h2>Registro</h2>
+    <input type="email" id="regEmail" placeholder="Correo">
+    <input type="password" id="regPassword" placeholder="Contraseña">
+    <button onclick="registrar()">Registrarse</button>
 
-const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app); // 🔹 comentar para pruebas locales
-const auth = getAuth(app);
+    <h2>Login</h2>
+    <input type="email" id="loginEmail" placeholder="Correo">
+    <input type="password" id="loginPassword" placeholder="Contraseña">
+    <button onclick="login()">Iniciar Sesión</button>
 
-const status = document.getElementById("status");
+    <button onclick="logout()">Cerrar sesión</button>
 
-async function registrar() {
-  const email = document.getElementById("regEmail").value;
-  const password = document.getElementById("regPassword").value;
-  try {
-    await createUserWithEmailAndPassword(auth, email, password);
-    status.textContent = "Usuario registrado ✅";
-  } catch (error) {
-    status.textContent = `Error registro: ${error.code} - ${error.message}`;
-  }
-}
+    <p id="status" style="color:red;"></p>
+  </div>
 
-async function login() {
-  const email = document.getElementById("loginEmail").value;
-  const password = document.getElementById("loginPassword").value;
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    status.textContent = "Login correcto ✅";
-  } catch (error) {
-    status.textContent = `Error login: ${error.code} - ${error.message}`;
-  }
-}
+  <div id="firestore-section" style="display:none;">
+    <h2>Guardar dato de prueba en Firestore</h2>
+    <input type="text" id="dato" placeholder="Escribe algo">
+    <button onclick="guardarDato()">Guardar</button>
+    <ul id="listaDatos"></ul>
+  </div>
 
-async function logout() {
-  await signOut(auth);
-  status.textContent = "Sesión cerrada 🔒";
-}
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    // import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+    import { 
+      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+    import { 
+      getFirestore, collection, addDoc, getDocs 
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-onAuthStateChanged(auth, (user) => {
-  console.log(user ? "Usuario logueado: " + user.email : "No hay usuario logueado");
-});
-</script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBBEiFr96VC4lYfqxZfmu0Ls8aphlwn20",
+      authDomain: "finanzas2025-9e5fa.firebaseapp.com",
+      projectId: "finanzas2025-9e5fa",
+      storageBucket: "finanzas2025-9e5fa.firebasestorage.app",
+      messagingSenderId: "224757847827",
+      appId: "1:224757847827:web:ed5ea37545b3413908ace6",
+      measurementId: "G-FXHHGMCYL6"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    // const analytics = getAnalytics(app); // 🔹 Comentar para pruebas locales
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const status = document.getElementById("status");
+
+    async function registrar() {
+      const email = document.getElementById("regEmail").value;
+      const password = document.getElementById("regPassword").value;
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        status.style.color = "green";
+        status.textContent = "Usuario registrado ✅";
+      } catch (error) {
+        status.style.color = "red";
+        status.textContent = `Error registro: ${error.code} - ${error.message}`;
+      }
+    }
+
+    async function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        status.style.color = "green";
+        status.textContent = "Login correcto ✅";
+      } catch (error) {
+        status.style.color = "red";
+        status.textContent = `Error login: ${error.code} - ${error.message}`;
+      }
+    }
+
+    async function logout() {
+      await signOut(auth);
+      status.style.color = "blue";
+      status.textContent = "Sesión cerrada 🔒";
+      document.getElementById("firestore-section").style.display = "none";
+    }
+
+    async function guardarDato() {
+      const user = auth.currentUser;
+      if (!user) return alert("Debes iniciar sesión");
+
+      const dato = document.getElementById("dato").value;
+      if (!dato) return alert("Escribe algo primero");
+
+      try {
+        await addDoc(collection(db, "datosPrueba"), {
+          userId: user.uid,
+          texto: dato,
+          fecha: new Date()
+        });
+        document.getElementById("dato").value = "";
+        cargarDatos();
+      } catch (error) {
+        alert("Error guardando dato: " + error.message);
+      }
+    }
+
+    async function cargarDatos() {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const lista = document.getElementById("listaDatos");
+      lista.innerHTML = "";
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "datosPrueba"));
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.userId === user.uid) {
+            const li = document.createElement("li");
+            li.textContent = `${data.texto} (${data.fecha.toDateString ? data.fecha.toDateString() : data.fecha})`;
+            lista.appendChild(li);
+          }
+        });
+      } catch (error) {
+        alert("Error cargando datos: " + error.message);
+      }
+    }
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        console.log("Usuario logueado:", user.email);
+        document.getElementById("firestore-section").style.display = "block";
+        cargarDatos();
+      } else {
+        console.log("No hay usuario logueado");
+        document.getElementById("firestore-section").style.display = "none";
+      }
+    });
+
+  </script>
+</body>
+</html>
