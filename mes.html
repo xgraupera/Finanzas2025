@@ -137,9 +137,8 @@
       });
 
       fijos.sort((a,b)=> a.desc.localeCompare(b.desc));
-
-      const listaGastos = document.getElementById("listaGastos");
-      listaGastos.innerHTML = "";
+      normales.sort((a, b) => a.fecha.toDate() - b.fecha.toDate());
+      
 
       const todosGastos = [...fijos,...normales];
 
