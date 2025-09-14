@@ -4,28 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gastos del Mes</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1 id="tituloMes">💰 Gastos del mes</h1>
+  <h1>💰 Gastos del Mes</h1>
 
   <div id="tracker-section" style="display:none;">
-    <h2>Gastos</h2>
+    <h2>Agregar Gasto</h2>
     <input type="text" id="desc" placeholder="Descripción">
-
-    <!-- 🔹 Select tipo de gasto -->
+    
+    <!-- 🔹 Desplegable para tipo de gasto -->
     <select id="tipo">
-      <option value="">Selecciona tipo</option>
-      <option value="alimentacion">Alimentación</option>
-      <option value="transporte">Transporte</option>
-      <option value="ocio">Ocio</option>
-      <option value="salud">Salud</option>
-      <option value="otros">Otros</option>
+      <option value="Comida">Comida</option>
+      <option value="Transporte">Transporte</option>
+      <option value="Entretenimiento">Entretenimiento</option>
+      <option value="Hogar">Hogar</option>
+      <option value="Otros">Otros</option>
     </select>
-
+    
     <input type="number" id="monto" placeholder="Monto">
     <button onclick="addGasto()">Añadir Gasto</button>
 
-    <ul id="listaGastos"></ul>
+    <h2>Resumen del Mes</h2>
+    <p id="totalGastos">Total Gastos: 0 €</p>
+    <ul id="resumenTipo"></ul>
+    <canvas id="graficoTipos" width="400" height="400"></canvas>
 
     <p><a href="index.html">⬅ Volver al resumen anual</a></p>
     <button onclick="logout()">Cerrar sesión</button>
@@ -52,27 +55,12 @@
     // 🔹 Obtenemos mes de la URL
     const urlParams = new URLSearchParams(window.location.search);
     const mes = urlParams.get("mes");
-
-    // 🔹 Mapa de meses para mostrar el nombre
-    const nombresMes = {
-      "01": "Enero",
-      "02": "Febrero",
-      "03": "Marzo",
-      "04": "Abril",
-      "05": "Mayo",
-      "06": "Junio",
-      "07": "Julio",
-      "08": "Agosto",
-      "09": "Septiembre",
-      "10": "Octubre",
-      "11": "Noviembre",
-      "12": "Diciembre"
+    const mesesNombre = {
+      "01":"Enero","02":"Febrero","03":"Marzo","04":"Abril","05":"Mayo",
+      "06":"Junio","07":"Julio","08":"Agosto","09":"Septiembre",
+      "10":"Octubre","11":"Noviembre","12":"Diciembre"
     };
-
-    if(mes && nombresMes[mes]){
-      document.getElementById("tituloMes").textContent = `💰 Gastos de ${nombresMes[mes]}`;
-      document.title = `Gastos de ${nombresMes[mes]}`;
-    }
+    document.querySelector('h1').textContent = `💰 Gastos de ${mesesNombre[mes] || "Mes"}`;
 
     async function addGasto() {
       const user = auth.currentUser;
@@ -81,7 +69,7 @@
       const desc = document.getElementById("desc").value;
       const tipo = document.getElementById("tipo").value;
       const monto = parseFloat(document.getElementById("monto").value);
-      if(!desc || !tipo || isNaN(monto)) return alert("Rellena todos los campos");
+      if(!desc || isNaN(monto)) return;
 
       await addDoc(collection(db, "gastos"), {
         userId: user.uid,
@@ -89,13 +77,11 @@
         tipo,
         monto,
         fecha: new Date(),
-        mes
+        mes: mes
       });
 
       document.getElementById("desc").value = "";
-      document.getElementById("tipo").value = "";
       document.getElementById("monto").value = "";
-
       loadGastos();
     }
 
@@ -103,21 +89,45 @@
       const user = auth.currentUser;
       if(!user) return;
 
-      const q = query(collection(db, "gastos"), where("userId", "==", user.uid), where("mes","==",mes));
+      const q = query(collection(db, "gastos"), where("userId","==",user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
-      const lista = document.getElementById("listaGastos");
+
+      let total = 0;
+      const totalesTipo = {};
+      const lista = document.getElementById("resumenTipo");
       lista.innerHTML = "";
+
       snapshot.forEach(doc=>{
         const gasto = doc.data();
+        total += gasto.monto;
+        if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo]=0;
+        totalesTipo[gasto.tipo] += gasto.monto;
+      });
+
+      document.getElementById("totalGastos").textContent = `Total Gastos: ${total.toFixed(2)} €`;
+
+      for(const tipo in totalesTipo){
         const li = document.createElement("li");
-        li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto} €`;
+        li.textContent = `${tipo}: ${totalesTipo[tipo].toFixed(2)} €`;
         lista.appendChild(li);
+      }
+
+      // Gráfico de pastel
+      const ctx = document.getElementById("graficoTipos").getContext('2d');
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(totalesTipo),
+          datasets: [{
+            data: Object.values(totalesTipo),
+            backgroundColor: ['#FF6384','#36A2EB','#FFCE56','#8AFF33','#AA33FF','#33FFDB']
+          }]
+        },
+        options: { responsive: true }
       });
     }
 
-    async function logout() {
-      await signOut(auth);
-    }
+    async function logout(){ await signOut(auth); }
 
     onAuthStateChanged(auth,user=>{
       if(user){
@@ -133,4 +143,5 @@
   </script>
 </body>
 </html>
+
 
