@@ -20,7 +20,7 @@
 
     <input type="text" id="desc" placeholder="Descripción">
     
-    <!-- Desplegable para tipo de gasto -->
+    <!-- Desplegable para tipo de ingresos -->
     <select id="tipo">
       <option value="Nomina">Nómina</option>
       <option value="Inversiones">Inversiones</option>
@@ -31,6 +31,8 @@
     <input type="number" id="monto" placeholder="Monto">
     <button onclick="addIngreso()">Añadir Ingreso</button>
     <ul id="listaIngresos"></ul>
+
+    <p id="totalIngresos">Total Ingresos: 0 €</p>
 
 
     
@@ -85,9 +87,94 @@
       "06":"Junio","07":"Julio","08":"Agosto","09":"Septiembre",
       "10":"Octubre","11":"Noviembre","12":"Diciembre"
     };
-    document.querySelector('h1').textContent = `💰 Gastos de ${mesesNombre[mes] || "Mes"}`;
+    document.querySelector('h1').textContent = `💰 Resumen de ${mesesNombre[mes] || "Mes"}`;
 
-    // Gastos fijos predeterminados
+
+    async function addIngreso(desc=null, tipo=null, monto=null){
+      const user = auth.currentUser;
+      if(!user) return;
+
+      const descInput = desc || document.getElementById("desc").value;
+      const tipoInput = tipo || document.getElementById("tipo").value;
+      const montoInput = monto || parseFloat(document.getElementById("monto").value);
+      if(!descInput || isNaN(montoInput)) return;
+
+      await addDoc(collection(db, "ingresos"), {
+        userId: user.uid,
+        desc: descInput,
+        tipo: tipoInput,
+        monto: montoInput,
+        fecha: new Date(),
+        mes: mes
+      });
+
+      if(!desc) { // solo limpiar si es input manual
+        document.getElementById("desc").value = "";
+        document.getElementById("monto").value = "";
+      }
+
+      loadIngresos();
+    }
+
+    async function deleteIngresos(id){
+      await deleteDoc(doc(db, "ingresos", id));
+      loadIngresos();
+    }
+
+    async function loadIngresos(){
+      const user = auth.currentUser;
+      if(!user) return;
+
+      const q = query(collection(db, "ingresos"), where("userId","==",user.uid), where("mes","==",mes));
+      const snapshot = await getDocs(q);
+
+      
+      
+      normales.sort((a, b) => a.fecha.toDate() - b.fecha.toDate());
+      
+      const listaIngresos = document.getElementById("listaIngresos");
+      listaIngresos.innerHTML = "";
+
+
+
+      let totalesTipo = {};
+      let total = 0;
+
+      todosIngresos.forEach(ingreso=>{
+        total += ingreso.monto;
+        if(!totalesTipo[ingreso.tipo]) totalesTipo[ingreso.tipo]=0;
+        totalesTipo[ingreso.tipo]+=ingreso.monto;
+
+        const li = document.createElement("li");
+        li.textContent = `${ingreso.desc} (${ingreso.tipo}): ${ingreso.monto.toFixed(2)} € `;
+
+        const btn = document.createElement("button");
+        btn.textContent = "🗑";
+        btn.style.marginLeft = "10px";
+        btn.onclick = ()=> deleteIngreso(ingreso.id);
+        li.appendChild(btn);
+
+        listaIngresos.appendChild(li);
+      });
+
+      // Resumen
+      document.getElementById("totalIngresos").textContent = `Total Ingresos: ${total.toFixed(2)} €`;
+      const listaResumen = document.getElementById("resumenTipo");
+      listaResumen.innerHTML = "";
+      for(const tipo in totalesTipo){
+        const li = document.createElement("li");
+        li.textContent = `${tipo}: ${totalesTipo[tipo].toFixed(2)} €`;
+        listaResumen.appendChild(li);
+      }
+
+
+
+
+
+
+
+
+        // Ingreso fijos predeterminados
     const gastosFijos = [
       { desc: "Alquiler", tipo: "Fijo", monto: 403 },
       { desc: "Internet", tipo: "Fijo", monto: 16.5 },
