@@ -139,6 +139,8 @@
       fijos.sort((a,b)=> a.desc.localeCompare(b.desc));
       normales.sort((a, b) => a.fecha.toDate() - b.fecha.toDate());
       
+      const listaGastos = document.getElementById("listaGastos");
+      listaGastos.innerHTML = "";
 
       const todosGastos = [...fijos,...normales];
 
