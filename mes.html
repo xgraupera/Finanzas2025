@@ -6,15 +6,28 @@
   <title>Gastos del Mes</title>
 </head>
 <body>
-  <h1>💰 Gastos del Mes</h1>
+  <h1 id="tituloMes">💰 Gastos del mes</h1>
+
   <div id="tracker-section" style="display:none;">
+    <h2>Gastos</h2>
     <input type="text" id="desc" placeholder="Descripción">
+
+    <!-- 🔹 Select tipo de gasto -->
+    <select id="tipo">
+      <option value="">Selecciona tipo</option>
+      <option value="alimentacion">Alimentación</option>
+      <option value="transporte">Transporte</option>
+      <option value="ocio">Ocio</option>
+      <option value="salud">Salud</option>
+      <option value="otros">Otros</option>
+    </select>
+
     <input type="number" id="monto" placeholder="Monto">
     <button onclick="addGasto()">Añadir Gasto</button>
 
-    <h2>Gastos</h2>
     <ul id="listaGastos"></ul>
 
+    <p><a href="index.html">⬅ Volver al resumen anual</a></p>
     <button onclick="logout()">Cerrar sesión</button>
   </div>
 
@@ -40,28 +53,56 @@
     const urlParams = new URLSearchParams(window.location.search);
     const mes = urlParams.get("mes");
 
+    // 🔹 Mapa de meses para mostrar el nombre
+    const nombresMes = {
+      "01": "Enero",
+      "02": "Febrero",
+      "03": "Marzo",
+      "04": "Abril",
+      "05": "Mayo",
+      "06": "Junio",
+      "07": "Julio",
+      "08": "Agosto",
+      "09": "Septiembre",
+      "10": "Octubre",
+      "11": "Noviembre",
+      "12": "Diciembre"
+    };
+
+    if(mes && nombresMes[mes]){
+      document.getElementById("tituloMes").textContent = `💰 Gastos de ${nombresMes[mes]}`;
+      document.title = `Gastos de ${nombresMes[mes]}`;
+    }
+
     async function addGasto() {
       const user = auth.currentUser;
       if(!user) return;
+
       const desc = document.getElementById("desc").value;
+      const tipo = document.getElementById("tipo").value;
       const monto = parseFloat(document.getElementById("monto").value);
-      if(!desc || isNaN(monto)) return;
+      if(!desc || !tipo || isNaN(monto)) return alert("Rellena todos los campos");
 
       await addDoc(collection(db, "gastos"), {
         userId: user.uid,
         desc,
+        tipo,
         monto,
         fecha: new Date(),
-        mes: mes   // 🔹 Guardamos el mes
+        mes
       });
+
       document.getElementById("desc").value = "";
+      document.getElementById("tipo").value = "";
       document.getElementById("monto").value = "";
+
       loadGastos();
     }
 
     async function loadGastos() {
       const user = auth.currentUser;
       if(!user) return;
+
       const q = query(collection(db, "gastos"), where("userId", "==", user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
       const lista = document.getElementById("listaGastos");
@@ -69,7 +110,7 @@
       snapshot.forEach(doc=>{
         const gasto = doc.data();
         const li = document.createElement("li");
-        li.textContent = `${gasto.desc}: ${gasto.monto} €`;
+        li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto} €`;
         lista.appendChild(li);
       });
     }
@@ -92,3 +133,4 @@
   </script>
 </body>
 </html>
+
