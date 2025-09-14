@@ -61,6 +61,20 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    async function registrar() {
+      const email = document.getElementById("regEmail").value;
+      const password = document.getElementById("regPassword").value;
+      const errorBox = document.getElementById("authError");
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        errorBox.style.color = "green";
+        errorBox.textContent = "✅ Usuario registrado correctamente";
+      } catch (error) {
+        errorBox.style.color = "red";
+        errorBox.textContent = `❌ Error en registro: ${error.code} - ${error.message}`;
+      }
+    }
+
     async function login() {
       const email = document.getElementById("loginEmail").value;
       const password = document.getElementById("loginPassword").value;
