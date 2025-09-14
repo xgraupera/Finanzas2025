@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     #graficoTipos {
-      max-width: 300px; /* Tamaño máximo del gráfico */
+      max-width: 300px;
       max-height: 300px;
     }
   </style>
@@ -16,43 +16,33 @@
   <h1>💰 Resumen del Mes</h1>
 
   <div id="tracker-section" style="display:none;">
-    <h2>Ingresos</h2>
 
-    <input type="text" id="desc" placeholder="Descripción">
-    
-    <!-- Desplegable para tipo de ingresos -->
-    <select id="tipo">
+    <!-- INGRESOS -->
+    <h2>Ingresos</h2>
+    <input type="text" id="descIngreso" placeholder="Descripción">
+    <select id="tipoIngreso">
       <option value="Nomina">Nómina</option>
       <option value="Inversiones">Inversiones</option>
-      <option value="Fijos (Extra)">Fijos (Extra)</option>
       <option value="Otros">Otros</option>
     </select>
-    
-    <input type="number" id="monto" placeholder="Monto">
+    <input type="number" id="montoIngreso" placeholder="Monto">
     <button onclick="addIngreso()">Añadir Ingreso</button>
     <ul id="listaIngresos"></ul>
-
     <p id="totalIngresos">Total Ingresos: 0 €</p>
 
-
-    
-    <h2>Gasto</h2>
-    <input type="text" id="desc" placeholder="Descripción">
-    
-    <!-- Desplegable para tipo de gasto -->
-    <select id="tipo">
+    <!-- GASTOS -->
+    <h2>Gastos</h2>
+    <input type="text" id="descGasto" placeholder="Descripción">
+    <select id="tipoGasto">
       <option value="Comida">Comida</option>
       <option value="Transporte">Transporte</option>
       <option value="Entretenimiento">Entretenimiento</option>
       <option value="Hogar">Hogar</option>
-      <option value="Fijos (Extra)">Fijos (Extra)</option>
       <option value="Otros">Otros</option>
     </select>
-    
-    <input type="number" id="monto" placeholder="Monto">
+    <input type="number" id="montoGasto" placeholder="Monto">
     <button onclick="addGasto()">Añadir Gasto</button>
     <ul id="listaGastos"></ul>
-    
     <h2>Resumen de Gastos</h2>
     <p id="totalGastos">Total Gastos: 0 €</p>
     <ul id="resumenTipo"></ul>
@@ -89,197 +79,144 @@
     };
     document.querySelector('h1').textContent = `💰 Resumen de ${mesesNombre[mes] || "Mes"}`;
 
-
-    async function addIngreso(desc=null, tipo=null, monto=null){
+    // ---------------- INGRESOS ----------------
+    async function addIngreso() {
       const user = auth.currentUser;
-      if(!user) return;
+      if (!user) return;
 
-      const descInput = desc || document.getElementById("desc").value;
-      const tipoInput = tipo || document.getElementById("tipo").value;
-      const montoInput = monto || parseFloat(document.getElementById("monto").value);
-      if(!descInput || isNaN(montoInput)) return;
+      const desc = document.getElementById("descIngreso").value;
+      const tipo = document.getElementById("tipoIngreso").value;
+      const monto = parseFloat(document.getElementById("montoIngreso").value);
+      if (!desc || isNaN(monto)) return;
 
       await addDoc(collection(db, "ingresos"), {
         userId: user.uid,
-        desc: descInput,
-        tipo: tipoInput,
-        monto: montoInput,
+        desc, tipo, monto,
         fecha: new Date(),
         mes: mes
       });
 
-      if(!desc) { // solo limpiar si es input manual
-        document.getElementById("desc").value = "";
-        document.getElementById("monto").value = "";
-      }
+      document.getElementById("descIngreso").value = "";
+      document.getElementById("montoIngreso").value = "";
 
       loadIngresos();
     }
 
-    async function deleteIngresos(id){
+    async function deleteIngreso(id) {
       await deleteDoc(doc(db, "ingresos", id));
       loadIngresos();
     }
 
-    async function loadIngresos(){
+    async function loadIngresos() {
       const user = auth.currentUser;
-      if(!user) return;
+      if (!user) return;
 
       const q = query(collection(db, "ingresos"), where("userId","==",user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
 
-      
-      
-      normales.sort((a, b) => a.fecha.toDate() - b.fecha.toDate());
-      
-      const listaIngresos = document.getElementById("listaIngresos");
-      listaIngresos.innerHTML = "";
-
-
-
-      let totalesTipo = {};
-      let total = 0;
-
-      todosIngresos.forEach(ingreso=>{
-        total += ingreso.monto;
-        if(!totalesTipo[ingreso.tipo]) totalesTipo[ingreso.tipo]=0;
-        totalesTipo[ingreso.tipo]+=ingreso.monto;
-
-        const li = document.createElement("li");
-        li.textContent = `${ingreso.desc} (${ingreso.tipo}): ${ingreso.monto.toFixed(2)} € `;
-
-        const btn = document.createElement("button");
-        btn.textContent = "🗑";
-        btn.style.marginLeft = "10px";
-        btn.onclick = ()=> deleteIngreso(ingreso.id);
-        li.appendChild(btn);
-
-        listaIngresos.appendChild(li);
+      const ingresos = [];
+      snapshot.forEach(docItem => {
+        const ingreso = docItem.data();
+        ingreso.id = docItem.id;
+        ingresos.push(ingreso);
       });
 
-      // Resumen
-      document.getElementById("totalIngresos").textContent = `Total Ingresos: ${total.toFixed(2)} €`;
-      const listaResumen = document.getElementById("resumenTipo");
-      listaResumen.innerHTML = "";
-      for(const tipo in totalesTipo){
+      ingresos.sort((a,b)=> a.fecha.toDate() - b.fecha.toDate());
+
+      const lista = document.getElementById("listaIngresos");
+      lista.innerHTML = "";
+      let total = 0;
+
+      ingresos.forEach(ingreso => {
+        total += ingreso.monto;
         const li = document.createElement("li");
-        li.textContent = `${tipo}: ${totalesTipo[tipo].toFixed(2)} €`;
-        listaResumen.appendChild(li);
-      }
+        li.textContent = `${ingreso.desc} (${ingreso.tipo}): ${ingreso.monto.toFixed(2)} €`;
+        const btn = document.createElement("button");
+        btn.textContent = "🗑";
+        btn.onclick = () => deleteIngreso(ingreso.id);
+        li.appendChild(btn);
+        lista.appendChild(li);
+      });
 
+      document.getElementById("totalIngresos").textContent = `Total Ingresos: ${total.toFixed(2)} €`;
+    }
 
-
-
-
-
-
-
-        // Ingreso fijos predeterminados
-    const gastosFijos = [
-      { desc: "Alquiler", tipo: "Fijo", monto: 403 },
-      { desc: "Internet", tipo: "Fijo", monto: 16.5 },
-      { desc: "iCloud", tipo: "Fijo", monto: 3 },
-      { desc: "Netflix", tipo: "Fijo", monto: 13 },
-      { desc: "Revolut", tipo: "Fijo", monto: 200 },
-      { desc: "Google", tipo: "Fijo", monto: 2 },
-      { desc: "Gym", tipo: "Fijo", monto: 25 }
-    ];
-
-    async function addGasto(desc=null, tipo=null, monto=null){
+    // ---------------- GASTOS ----------------
+    async function addGasto() {
       const user = auth.currentUser;
-      if(!user) return;
+      if (!user) return;
 
-      const descInput = desc || document.getElementById("desc").value;
-      const tipoInput = tipo || document.getElementById("tipo").value;
-      const montoInput = monto || parseFloat(document.getElementById("monto").value);
-      if(!descInput || isNaN(montoInput)) return;
+      const desc = document.getElementById("descGasto").value;
+      const tipo = document.getElementById("tipoGasto").value;
+      const monto = parseFloat(document.getElementById("montoGasto").value);
+      if (!desc || isNaN(monto)) return;
 
       await addDoc(collection(db, "gastos"), {
         userId: user.uid,
-        desc: descInput,
-        tipo: tipoInput,
-        monto: montoInput,
+        desc, tipo, monto,
         fecha: new Date(),
         mes: mes
       });
 
-      if(!desc) { // solo limpiar si es input manual
-        document.getElementById("desc").value = "";
-        document.getElementById("monto").value = "";
-      }
+      document.getElementById("descGasto").value = "";
+      document.getElementById("montoGasto").value = "";
 
       loadGastos();
     }
 
-    async function deleteGasto(id){
+    async function deleteGasto(id) {
       await deleteDoc(doc(db, "gastos", id));
       loadGastos();
     }
 
-    async function loadGastos(){
+    async function loadGastos() {
       const user = auth.currentUser;
-      if(!user) return;
+      if (!user) return;
 
       const q = query(collection(db, "gastos"), where("userId","==",user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
 
-      // Cargar gastos fijos si no existen
-      const existeFijos = snapshot.docs.some(d => d.data().tipo === "Fijo");
-      if(!existeFijos){
-        for(const gf of gastosFijos){
-          await addGasto(gf.desc, "Fijo", gf.monto);
-        }
-        return;
-      }
-
       const fijos = [];
       const normales = [];
-      snapshot.forEach(docItem=>{
+      snapshot.forEach(docItem => {
         const gasto = docItem.data();
         gasto.id = docItem.id;
-        if(gasto.tipo==="Fijo") fijos.push(gasto);
+        if (gasto.tipo === "Fijo") fijos.push(gasto);
         else normales.push(gasto);
       });
 
       fijos.sort((a,b)=> a.desc.localeCompare(b.desc));
-      normales.sort((a, b) => a.fecha.toDate() - b.fecha.toDate());
-      
-      const listaGastos = document.getElementById("listaGastos");
-      listaGastos.innerHTML = "";
+      normales.sort((a,b)=> a.fecha.toDate() - b.fecha.toDate());
 
-      const todosGastos = [...fijos,...normales];
-
-      let totalesTipo = {};
+      const lista = document.getElementById("listaGastos");
+      lista.innerHTML = "";
       let total = 0;
+      const totalesTipo = {};
 
-      todosGastos.forEach(gasto=>{
+      [...fijos, ...normales].forEach(gasto => {
         total += gasto.monto;
-        if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo]=0;
-        totalesTipo[gasto.tipo]+=gasto.monto;
+        if (!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo] = 0;
+        totalesTipo[gasto.tipo] += gasto.monto;
 
         const li = document.createElement("li");
-        li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto.toFixed(2)} € `;
-
+        li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto.toFixed(2)} €`;
         const btn = document.createElement("button");
         btn.textContent = "🗑";
-        btn.style.marginLeft = "10px";
-        btn.onclick = ()=> deleteGasto(gasto.id);
+        btn.onclick = () => deleteGasto(gasto.id);
         li.appendChild(btn);
-
-        listaGastos.appendChild(li);
+        lista.appendChild(li);
       });
 
-      // Resumen
       document.getElementById("totalGastos").textContent = `Total Gastos: ${total.toFixed(2)} €`;
+
       const listaResumen = document.getElementById("resumenTipo");
       listaResumen.innerHTML = "";
-      for(const tipo in totalesTipo){
+      for (const tipo in totalesTipo) {
         const li = document.createElement("li");
         li.textContent = `${tipo}: ${totalesTipo[tipo].toFixed(2)} €`;
         listaResumen.appendChild(li);
       }
 
-      // Gráfico
       const ctx = document.getElementById("graficoTipos").getContext('2d');
       new Chart(ctx, {
         type: 'pie',
@@ -294,20 +231,23 @@
       });
     }
 
+    // ---------------- AUTH ----------------
     async function logout(){ await signOut(auth); }
 
-    onAuthStateChanged(auth,user=>{
-      if(user){
+    onAuthStateChanged(auth, user => {
+      if (user) {
         document.getElementById("tracker-section").style.display = "block";
+        loadIngresos();
         loadGastos();
       } else {
         window.location.href = "index.html";
       }
     });
 
-    window.addGasto = addGasto;
     window.addIngreso = addIngreso;
+    window.addGasto = addGasto;
     window.logout = logout;
   </script>
 </body>
 </html>
+
