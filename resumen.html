@@ -1,13 +1,167 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Resumen Anual</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracker de Gastos</title>
 </head>
 <body>
-  <h1>Resumen 2025</h1>
-  <p>Aquí irá tu gráfico de gastos</p>
-  <a href="junio.html">Ir a Junio</a>
+  <h1>💰 Tracker de Gastos</h1>
+
+  <!-- 🔹 Registro y Login -->
+  <div id="auth-section">
+    <h2>Registro</h2>
+    <input type="email" id="regEmail" placeholder="Correo">
+    <input type="password" id="regPassword" placeholder="Contraseña">
+    <button onclick="registrar()">Registrarse</button>
+
+    <h2>Login</h2>
+    <input type="email" id="loginEmail" placeholder="Correo">
+    <input type="password" id="loginPassword" placeholder="Contraseña">
+    <button onclick="login()">Iniciar Sesión</button>
+
+    <p id="authError" style="color:red;"></p>
+  </div>
+
+  <hr>
+
+  <!-- 🔹 Tracker de gastos -->
+  <div id="tracker-section" style="display:none;">
+    <h2>Agregar Gasto</h2>
+    <input type="text" id="desc" placeholder="Descripción">
+    <input type="number" id="monto" placeholder="Monto">
+    <button onclick="addGasto()">Añadir Gasto</button>
+
+    <h2>Mis Gastos</h2>
+    <ul id="listaGastos"></ul>
+
+    <button onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <!-- 🔹 Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { 
+      getAuth, 
+      createUserWithEmailAndPassword, 
+      signInWithEmailAndPassword, 
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      query, 
+      where 
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBBEiFr96VC4lYfqxZfmu0Ls8aphlwn20",
+      authDomain: "finanzas2025-9e5fa.firebaseapp.com",
+      projectId: "finanzas2025-9e5fa",
+      storageBucket: "finanzas2025-9e5fa.firebasestorage.app",
+      messagingSenderId: "224757847827",
+      appId: "1:224757847827:web:ed5ea37545b3413908ace6",
+      measurementId: "G-FXHHGMCYL6"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    // const analytics = getAnalytics(app); // 🔹 comentar en local si da error
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    async function registrar() {
+      const email = document.getElementById("regEmail").value;
+      const password = document.getElementById("regPassword").value;
+      const errorBox = document.getElementById("authError");
+
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        errorBox.style.color = "green";
+        errorBox.textContent = "✅ Usuario registrado correctamente";
+      } catch (error) {
+        errorBox.style.color = "red";
+        errorBox.textContent = "❌ Error en registro: " + error.code + " - " + error.message;
+      }
+    }
+
+    async function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      const errorBox = document.getElementById("authError");
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        errorBox.style.color = "green";
+        errorBox.textContent = "✅ Login correcto";
+      } catch (error) {
+        errorBox.style.color = "red";
+        errorBox.textContent = "❌ Error en login: " + error.code + " - " + error.message;
+      }
+    }
+
+    async function logout() {
+      await signOut(auth);
+    }
+
+    async function addGasto() {
+      const user = auth.currentUser;
+      if (!user) {
+        alert("Debes iniciar sesión");
+        return;
+      }
+      const desc = document.getElementById("desc").value;
+      const monto = document.getElementById("monto").value;
+
+      try {
+        await addDoc(collection(db, "gastos"), {
+          userId: user.uid,
+          desc,
+          monto: parseFloat(monto),
+          fecha: new Date()
+        });
+        document.getElementById("desc").value = "";
+        document.getElementById("monto").value = "";
+        loadGastos();
+      } catch (error) {
+        alert("Error guardando gasto: " + error.code + " - " + error.message);
+      }
+    }
+
+    async function loadGastos() {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const q = query(collection(db, "gastos"), where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+
+        const lista = document.getElementById("listaGastos");
+        lista.innerHTML = "";
+
+        querySnapshot.forEach((doc) => {
+          const gasto = doc.data();
+          const li = document.createElement("li");
+          li.textContent = `${gasto.desc}: ${gasto.monto} €`;
+          lista.appendChild(li);
+        });
+      } catch (error) {
+        alert("Error cargando gastos: " + error.code + " - " + error.message);
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("auth-section").style.display = "none";
+        document.getElementById("tracker-section").style.display = "block";
+        loadGastos();
+      } else {
+        document.getElementById("auth-section").style.display = "block";
+        document.getElementById("tracker-section").style.display = "none";
+      }
+    });
+  </script>
 </body>
 </html>
