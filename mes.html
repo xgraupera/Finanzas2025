@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gastos del Mes</title>
+  <title>Resumen del Mes</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     #graficoTipos {
@@ -13,9 +13,27 @@
   </style>
 </head>
 <body>
-  <h1>💰 Gastos del Mes</h1>
+  <h1>💰 Resumen del Mes</h1>
 
   <div id="tracker-section" style="display:none;">
+    <h2>Ingresos</h2>
+
+    <input type="text" id="desc" placeholder="Descripción">
+    
+    <!-- Desplegable para tipo de gasto -->
+    <select id="tipo">
+      <option value="Nomina">Nómina</option>
+      <option value="Inversiones">Inversiones</option>
+      <option value="Fijos (Extra)">Fijos (Extra)</option>
+      <option value="Otros">Otros</option>
+    </select>
+    
+    <input type="number" id="monto" placeholder="Monto">
+    <button onclick="addIngreso()">Añadir Ingreso</button>
+    <ul id="listaIngresos"></ul>
+
+
+    
     <h2>Gasto</h2>
     <input type="text" id="desc" placeholder="Descripción">
     
@@ -201,6 +219,7 @@
     });
 
     window.addGasto = addGasto;
+    window.addIngreso = addIngreso;
     window.logout = logout;
   </script>
 </body>
