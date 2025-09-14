@@ -5,33 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gastos del Mes</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    #graficoTipos {
+      max-width: 300px; /* Tamaño máximo del gráfico */
+      max-height: 300px;
+    }
+  </style>
 </head>
 <body>
   <h1>💰 Gastos del Mes</h1>
 
   <div id="tracker-section" style="display:none;">
-    <h2>Agregar Gasto</h2>
+    <h2>Gasto</h2>
     <input type="text" id="desc" placeholder="Descripción">
-
+    
+    <!-- Desplegable para tipo de gasto -->
     <select id="tipo">
       <option value="Comida">Comida</option>
       <option value="Transporte">Transporte</option>
       <option value="Entretenimiento">Entretenimiento</option>
       <option value="Hogar">Hogar</option>
       <option value="Otros">Otros</option>
-      <option value="Fijo">Fijo</option>
     </select>
-
+    
     <input type="number" id="monto" placeholder="Monto">
     <button onclick="addGasto()">Añadir Gasto</button>
-
-    <h2>Gastos Registrados</h2>
     <ul id="listaGastos"></ul>
-
-    <h2>Resumen de Gastos por Tipo</h2>
-    <ul id="resumenTipo"></ul>
+    
+    <h2>Resumen de Gastos</h2>
     <p id="totalGastos">Total Gastos: 0 €</p>
-    <canvas id="graficoTipos" width="100" height="100"></canvas>
+    <ul id="resumenTipo"></ul>
+    <canvas id="graficoTipos"></canvas>
 
     <p><a href="index.html">⬅ Volver al resumen anual</a></p>
     <button onclick="logout()">Cerrar sesión</button>
@@ -40,7 +44,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBBBEiFr96VC4lYfqxZfmu0Ls8aphlwn20",
@@ -55,7 +59,6 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // 🔹 Obtenemos mes de la URL
     const urlParams = new URLSearchParams(window.location.search);
     const mes = urlParams.get("mes");
     const mesesNombre = {
@@ -65,97 +68,111 @@
     };
     document.querySelector('h1').textContent = `💰 Gastos de ${mesesNombre[mes] || "Mes"}`;
 
-    // 🔹 Gastos fijos por defecto
+    // Gastos fijos predeterminados
     const gastosFijos = [
-      { desc: "Alquiler", monto: 403 },
-      { desc: "Internet", monto: 16.5 },
-      { desc: "iCloud", monto: 3 },
-      { desc: "Netflix", monto: 13 },
-      { desc: "Revolut", monto: 200 },
-      { desc: "Google", monto: 2 },
-      { desc: "Gym", monto: 25 }
+      { desc: "Alquiler", tipo: "Fijo", monto: 403 },
+      { desc: "Internet", tipo: "Fijo", monto: 16.5 },
+      { desc: "iCloud", tipo: "Fijo", monto: 3 },
+      { desc: "Netflix", tipo: "Fijo", monto: 13 },
+      { desc: "Revolut", tipo: "Fijo", monto: 200 },
+      { desc: "Google", tipo: "Fijo", monto: 2 },
+      { desc: "Gym", tipo: "Fijo", monto: 25 }
     ];
 
-    async function addGasto(desc=null, tipo=null, monto=null) {
+    async function addGasto(desc=null, tipo=null, monto=null){
       const user = auth.currentUser;
       if(!user) return;
 
-      const inputDesc = desc || document.getElementById("desc").value;
-      const inputTipo = tipo || document.getElementById("tipo").value;
-      const inputMonto = monto !== null ? monto : parseFloat(document.getElementById("monto").value);
-      if(!inputDesc || isNaN(inputMonto)) return;
+      const descInput = desc || document.getElementById("desc").value;
+      const tipoInput = tipo || document.getElementById("tipo").value;
+      const montoInput = monto || parseFloat(document.getElementById("monto").value);
+      if(!descInput || isNaN(montoInput)) return;
 
       await addDoc(collection(db, "gastos"), {
         userId: user.uid,
-        desc: inputDesc,
-        tipo: inputTipo,
-        monto: inputMonto,
+        desc: descInput,
+        tipo: tipoInput,
+        monto: montoInput,
         fecha: new Date(),
         mes: mes
       });
 
-      document.getElementById("desc").value = "";
-      document.getElementById("monto").value = "";
+      if(!desc) { // solo limpiar si es input manual
+        document.getElementById("desc").value = "";
+        document.getElementById("monto").value = "";
+      }
+
       loadGastos();
     }
 
-    async function deleteGasto(id) {
+    async function deleteGasto(id){
       await deleteDoc(doc(db, "gastos", id));
       loadGastos();
     }
 
-    async function loadGastos() {
+    async function loadGastos(){
       const user = auth.currentUser;
       if(!user) return;
 
       const q = query(collection(db, "gastos"), where("userId","==",user.uid), where("mes","==",mes));
       const snapshot = await getDocs(q);
 
-      // Si no hay gastos fijos para este mes, los añadimos
+      // Cargar gastos fijos si no existen
       const existeFijos = snapshot.docs.some(d => d.data().tipo === "Fijo");
       if(!existeFijos){
         for(const gf of gastosFijos){
           await addGasto(gf.desc, "Fijo", gf.monto);
         }
-        return; // Se recargará después automáticamente
+        return;
       }
 
-      let total = 0;
-      const totalesTipo = {};
-      const listaGastos = document.getElementById("listaGastos");
-      const listaResumen = document.getElementById("resumenTipo");
-      listaGastos.innerHTML = "";
-      listaResumen.innerHTML = "";
-
+      const fijos = [];
+      const normales = [];
       snapshot.forEach(docItem=>{
         const gasto = docItem.data();
+        gasto.id = docItem.id;
+        if(gasto.tipo==="Fijo") fijos.push(gasto);
+        else normales.push(gasto);
+      });
+
+      fijos.sort((a,b)=> a.desc.localeCompare(b.desc));
+
+      const listaGastos = document.getElementById("listaGastos");
+      listaGastos.innerHTML = "";
+
+      const todosGastos = [...fijos,...normales];
+
+      let totalesTipo = {};
+      let total = 0;
+
+      todosGastos.forEach(gasto=>{
         total += gasto.monto;
         if(!totalesTipo[gasto.tipo]) totalesTipo[gasto.tipo]=0;
-        totalesTipo[gasto.tipo] += gasto.monto;
+        totalesTipo[gasto.tipo]+=gasto.monto;
 
-        // Lista de gastos individuales
         const li = document.createElement("li");
         li.textContent = `${gasto.desc} (${gasto.tipo}): ${gasto.monto.toFixed(2)} € `;
 
-        // Botón borrar
         const btn = document.createElement("button");
         btn.textContent = "🗑";
         btn.style.marginLeft = "10px";
-        btn.onclick = ()=> deleteGasto(docItem.id);
+        btn.onclick = ()=> deleteGasto(gasto.id);
         li.appendChild(btn);
 
         listaGastos.appendChild(li);
       });
 
-      // Resumen por tipo
+      // Resumen
       document.getElementById("totalGastos").textContent = `Total Gastos: ${total.toFixed(2)} €`;
+      const listaResumen = document.getElementById("resumenTipo");
+      listaResumen.innerHTML = "";
       for(const tipo in totalesTipo){
         const li = document.createElement("li");
         li.textContent = `${tipo}: ${totalesTipo[tipo].toFixed(2)} €`;
         listaResumen.appendChild(li);
       }
 
-      // Gráfico de pastel
+      // Gráfico
       const ctx = document.getElementById("graficoTipos").getContext('2d');
       new Chart(ctx, {
         type: 'pie',
@@ -166,7 +183,7 @@
             backgroundColor: ['#FF6384','#36A2EB','#FFCE56','#8AFF33','#AA33FF','#33FFDB']
           }]
         },
-        options: { responsive: true }
+        options: { responsive: true, maintainAspectRatio: false }
       });
     }
 
@@ -183,7 +200,7 @@
 
     window.addGasto = addGasto;
     window.logout = logout;
-
   </script>
 </body>
 </html>
+
