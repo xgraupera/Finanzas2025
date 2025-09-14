@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Junio 2025</title>
+</head>
+<body>
+  <h1>Gastos Junio</h1>
+  <form id="formGasto">
+    <input type="text" id="desc" placeholder="Descripción">
+    <input type="number" id="monto" placeholder="Monto">
+    <button type="submit">Agregar</button>
+  </form>
+  <ul id="lista"></ul>
+  <p>Total: <span id="total">0</span> €</p>
+
+  <script>
+    const lista = document.getElementById('lista');
+    const totalEl = document.getElementById('total');
+    let total = 0;
+
+    document.getElementById('formGasto').addEventListener('submit', e => {
+      e.preventDefault();
+      const desc = document.getElementById('desc').value;
+      const monto = parseFloat(document.getElementById('monto').value);
+      if (!desc || isNaN(monto)) return;
+
+      const li = document.createElement('li');
+      li.textContent = `${desc}: ${monto} €`;
+      lista.appendChild(li);
+
+      total += monto;
+      totalEl.textContent = total;
+
+      e.target.reset();
+    });
+  </script>
+</body>
+</html>
